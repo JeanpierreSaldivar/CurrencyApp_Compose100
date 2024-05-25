@@ -42,6 +42,7 @@ import domain.model.CurrencyCode
 import domain.model.RateStatus
 import domain.model.RequestState
 import headerColor
+import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.painterResource
 import staleColor
 import util.displayCurrentDateTime
@@ -81,7 +82,7 @@ fun HomeHeader(
         )
     }
 }
-
+@OptIn(ExperimentalResourceApi::class)
 @Composable
 fun RateStatus(
     status: RateStatus,
@@ -124,6 +125,7 @@ fun RateStatus(
     }
 }
 
+@OptIn(ExperimentalResourceApi::class)
 @Composable
 fun CurrencyInput(
     source: RequestState<Currency>,
@@ -163,6 +165,7 @@ fun CurrencyInput(
     }
 }
 
+@OptIn(ExperimentalResourceApi::class)
 @Composable
 fun RowScope.CurrencyView(
     placeholder: String,

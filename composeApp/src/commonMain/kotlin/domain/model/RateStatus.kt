@@ -1,8 +1,8 @@
 package domain.model
 
 import androidx.compose.ui.graphics.Color
-import ui.theme.freshColor
-import ui.theme.staleColor
+import freshColor
+import staleColor
 
 enum class RateStatus(
     val title: String,

@@ -4,7 +4,8 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.jetbrainsCompose)
-    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlinxSerialization)
+    alias(libs.plugins.realm.plugin)
 }
 
 kotlin {
@@ -30,7 +31,7 @@ kotlin {
     sourceSets {
         
         androidMain.dependencies {
-            implementation(compose.preview)
+            implementation(libs.compose.ui.tooling.preview)
             implementation(libs.androidx.activity.compose)
 
             implementation(libs.ktor.client.android)
@@ -59,7 +60,7 @@ kotlin {
             implementation(libs.multiplatform.settings.coroutines)
 
             implementation(libs.mongodb.realm)
-            implementation(libs.kotlinx.coroutines)
+            implementation(libs.kotlin.coroutines)
             implementation(libs.stately.common)
 
         }
@@ -67,6 +68,8 @@ kotlin {
             implementation(libs.ktor.client.darwin)
         }
     }
+
+    task("testClasses"){}
 }
 
 android {
@@ -98,9 +101,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    buildFeatures {
-        compose = true
-    }
+
     dependencies {
         debugImplementation(compose.uiTooling)
     }
