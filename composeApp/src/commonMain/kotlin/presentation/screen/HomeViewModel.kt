@@ -12,12 +12,18 @@ import domain.PreferencesRepository
 import domain.model.Currency
 import domain.model.RateStatus
 import domain.model.RequestState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
 sealed class HomeUiEvent {
     data object RefreshRates: HomeUiEvent()
+    data object SwitchCurrencies: HomeUiEvent()
+    data class SaveSourceCurrencyCode(val code: String): HomeUiEvent()
+    data class SaveTargetCurrencyCode(val code: String): HomeUiEvent()
 }
 
 class HomeViewModel(
@@ -43,6 +49,8 @@ class HomeViewModel(
     init {
         screenModelScope.launch {
             fetchNewRates()
+            readSourceCurrency()
+            readTargetCurrency()
         }
     }
 
@@ -51,6 +59,43 @@ class HomeViewModel(
             HomeUiEvent.RefreshRates -> {
                 screenModelScope.launch {
                     fetchNewRates()
+                }
+            }
+
+            HomeUiEvent.SwitchCurrencies -> {
+                switchCurrencies()
+            }
+
+            is HomeUiEvent.SaveSourceCurrencyCode ->{
+                saveSourceCurrencyCode(event.code)
+            }
+            is HomeUiEvent.SaveTargetCurrencyCode ->{
+                saveTargetCurrencyCode(event.code)
+            }
+        }
+    }
+
+    private fun readSourceCurrency(){
+        screenModelScope.launch(Dispatchers.Main) {
+            preferences.readSourceCurrencyCode().collectLatest {currencyCode ->
+                val selectCurrency = _allCurrencies.find { it.code == currencyCode.name }
+                if (selectCurrency != null){
+                    _sourceCurrency.value = RequestState.Success(data = selectCurrency)
+                } else  {
+                    _sourceCurrency.value = RequestState.Error(message = "Couldn't find the selected currency.")
+                }
+            }
+        }
+    }
+
+    private fun readTargetCurrency(){
+        screenModelScope.launch(Dispatchers.Main) {
+            preferences.readTargetCurrencyCode().collectLatest {currencyCode ->
+                val selectCurrency = _allCurrencies.find { it.code == currencyCode.name }
+                if (selectCurrency != null){
+                    _targetCurrency.value = RequestState.Success(data = selectCurrency)
+                } else  {
+                    _targetCurrency.value = RequestState.Error(message = "Couldn't find the selected currency.")
                 }
             }
         }
@@ -62,7 +107,9 @@ class HomeViewModel(
             if(localCache.isSuccess()){
                 if (localCache.getSuccessData().isNotEmpty()){
                     println("HomeViewModel: DATABASE IS FULL")
-                    _allCurrencies.addAll(localCache.getSuccessData())
+                    _allCurrencies.clear()
+                    val data = localCache.getSuccessData()
+                    _allCurrencies.addAll(data)
                     if (!preferences.isDataFresh(Clock.System.now().toEpochMilliseconds())){
                         println("HomeViewModel: DATA NOT FRESH")
                         cacheTheData()
@@ -91,7 +138,9 @@ class HomeViewModel(
                 mongoDb.insertCurrencyData(it)
             }
             println("HomeViewModel: UPDATING _allCurrencies")
-            _allCurrencies.addAll(fetchedData.getSuccessData())
+            _allCurrencies.clear()
+            val data = fetchedData.getSuccessData()
+            _allCurrencies.addAll(data)
         }else if (fetchedData.isError()){
             println("HomeViewModel: FETCHING FAILED ${fetchedData.getErrorMessage()}")
         }
@@ -100,8 +149,25 @@ class HomeViewModel(
     private suspend fun getRatesStatus() {
         _rateStatus.value = if (preferences.isDataFresh(
             currentTimestamp = Clock.System.now().toEpochMilliseconds()
-            )
-            ) RateStatus.Fresh
+            )) RateStatus.Fresh
         else RateStatus.Stale
+    }
+
+    private fun switchCurrencies(){
+        val source = _sourceCurrency.value
+        val target = _targetCurrency.value
+        _sourceCurrency.value = target
+        _targetCurrency.value = source
+    }
+
+    private fun saveSourceCurrencyCode(code: String){
+        screenModelScope.launch(Dispatchers.IO){
+            preferences.saveSourceCurrencyCode(code)
+        }
+    }
+    private fun saveTargetCurrencyCode(code: String){
+        screenModelScope.launch(Dispatchers.IO){
+            preferences.saveTargetCurrencyCode(code)
+        }
     }
 }

@@ -1,6 +1,8 @@
 package presentation.component
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,10 +26,15 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -39,8 +46,11 @@ import currencyapp.composeapp.generated.resources.refresh_ic
 import currencyapp.composeapp.generated.resources.switch_ic
 import domain.model.Currency
 import domain.model.CurrencyCode
+import domain.model.CurrencyType
+import domain.model.DisplayResult
 import domain.model.RateStatus
 import domain.model.RequestState
+import getPlatform
 import headerColor
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.painterResource
@@ -55,13 +65,15 @@ fun HomeHeader(
     amount: Double,
     onAmountChange: (Double) -> Unit,
     onRatesRefresh: () -> Unit,
-    onSwitchClick: () -> Unit
+    onSwitchClick: () -> Unit,
+    onCurrencyTypeSelect: (CurrencyType) -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
             .background(headerColor)
+            .padding(top = if( getPlatform().name == "Android") 0.dp else 24.dp)
             .padding(all = 24.dp)
     ) {
         Spacer(modifier = Modifier.height(24.dp))
@@ -73,7 +85,8 @@ fun HomeHeader(
         CurrencyInput(
             source= source,
             target = target,
-            onSwitchClick = onSwitchClick
+            onSwitchClick = onSwitchClick,
+            onCurrencyTypeSelect = onCurrencyTypeSelect
         )
         Spacer(modifier = Modifier.height(24.dp))
         AmountInput(
@@ -130,8 +143,15 @@ fun RateStatus(
 fun CurrencyInput(
     source: RequestState<Currency>,
     target: RequestState<Currency>,
-    onSwitchClick: () -> Unit
+    onSwitchClick: () -> Unit,
+    onCurrencyTypeSelect: (CurrencyType) -> Unit
 ) {
+    var animationStarted by remember { mutableStateOf(false) }
+    val animatedRotation by animateFloatAsState(
+        targetValue = if (animationStarted) 180f else 0f,
+        animationSpec = tween(durationMillis = 500)
+    )
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -140,13 +160,29 @@ fun CurrencyInput(
             placeholder = "from",
             currency = source,
             onClick = {
-
+                if(source.isSuccess()){
+                    onCurrencyTypeSelect(
+                        CurrencyType.Source(
+                            currencyCode = CurrencyCode.valueOf(
+                                source.getSuccessData().code
+                            )
+                        )
+                    )
+                }
             }
         )
         Spacer(modifier = Modifier.height(14.dp))
         IconButton(
-            modifier = Modifier.padding(top = 24.dp),
-            onClick = onSwitchClick
+            modifier = Modifier
+                .padding(top = 24.dp)
+                .graphicsLayer {
+                               rotationY = animatedRotation
+                }
+            ,
+            onClick = {
+                animationStarted = !animationStarted
+                onSwitchClick()
+            }
         ){
             Icon(
                 painter = painterResource(Res.drawable.switch_ic),
@@ -159,7 +195,15 @@ fun CurrencyInput(
             placeholder = "to",
             currency = target,
             onClick = {
-
+                if(target.isSuccess()){
+                    onCurrencyTypeSelect(
+                        CurrencyType.Target(
+                            currencyCode = CurrencyCode.valueOf(
+                                target.getSuccessData().code
+                            )
+                        )
+                    )
+                }
             }
         )
     }
@@ -190,25 +234,27 @@ fun RowScope.CurrencyView(
            verticalAlignment = Alignment.CenterVertically,
            horizontalArrangement = Arrangement.Center
        ){
-           if (currency.isSuccess()){
-               Icon(
-                   modifier = Modifier.size(24.dp),
-                   painter = painterResource(
-                       CurrencyCode.valueOf(
-                           currency.getSuccessData().code
-                       ).flag
-                   ),
-                   tint = Color.Unspecified,
-                   contentDescription = "Country Flag"
-               )
-               Spacer(modifier = Modifier.width(8.dp))
-               Text(
-                   text = CurrencyCode.valueOf(currency.getSuccessData().code).name,
-                   fontWeight = FontWeight.Bold,
-                   fontSize = MaterialTheme.typography.titleLarge.fontSize,
-                   color = Color.White
-               )
-           }
+           currency.DisplayResult(
+               onSuccess = {data ->
+                   Icon(
+                       modifier = Modifier.size(24.dp),
+                       painter = painterResource(
+                           CurrencyCode.valueOf(
+                               data.code
+                           ).flag
+                       ),
+                       tint = Color.Unspecified,
+                       contentDescription = "Country Flag"
+                   )
+                   Spacer(modifier = Modifier.width(8.dp))
+                   Text(
+                       text = CurrencyCode.valueOf(data.code).name,
+                       fontWeight = FontWeight.Bold,
+                       fontSize = MaterialTheme.typography.titleLarge.fontSize,
+                       color = Color.White
+                   )
+               }
+           )
        }
    }
 }
